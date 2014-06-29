@@ -5,8 +5,10 @@ import jieba
 import jieba.analyse
 import re
 import requests
+import chardet
 from multiprocessing.dummy import Pool as ThreadPool 
 from lxml import etree
+import timeit
 
 reload(sys)    
 sys.setdefaultencoding('utf-8')
@@ -22,30 +24,33 @@ def extract_url(bookmark_filepath):
 def fetch_url(url):
 	response = requests.get(url)
 	html = response.content
+	#print html
+	'''	
+	content_type = response.headers.get('content-type')
+	#print content_type
+	if(html):
+		encode = chardet.detect(html)['encoding']
+		if encode == 'GB2312':
+			encode = 'gbk'
+		if not encode:
+			encode = 'utf-8'
+		'''
 	try:
 		page = etree.HTML(html.lower())
-		title = page.xpath(u'/html/head/title')[0].text
-		keyword = page.xpath('/html/head/meta[@name="keywords"]/@content')[0]
-		description = page.xpath('/html/head/meta[@name="description"]/@content')[0]
-		
-		return title, keyword, description
-
+		title = page.xpath(u'/html/head/title')
+		keyword = page.xpath('/html/head/meta[@name="keywords"]/@content')
+		description = page.xpath('/html/head/meta[@name="description"]/@content')
+		print title[0].text
+		print keyword[0]
+		print description[0]
 	except UnicodeEncodeError:
 		print 'Unicode Encode Error'
 	except:
 		print response.headers.get('content-type')
 
-def extract_tags(content):
-	return jieba.analyse.extract_tags(content, 5)
-
 def multi_process(urls):
 	pool = ThreadPool(4)
 	results = pool.map(fetch_url, urls)
-	for result in results:
-		content = ";".join(result)
-		tags = extract_tags(content)
-		print ",".join(tags)
-
 	pool.close()
 	pool.join
 
@@ -60,4 +65,9 @@ if __name__ == '__main__':
 		'http://www.sina.com.cn',
 		'http://www.qq.com'
 	]
-	multi_process(urls)
+	t1 = timeit.Timer("multi_process(urls)", "from __main__ import multi_process, urls")
+	t2 = timeit.Timer("single_process(urls)", "from __main__ import single_process, urls")
+	print 'multi_process',t1.timeit(1)
+	print 'single_process',t2.timeit(1)
+	
+	#multi_process(urls)
